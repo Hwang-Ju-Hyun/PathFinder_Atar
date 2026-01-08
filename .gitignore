@@ -1,0 +1,42 @@
+## [ Build Results ]
+bin/
+obj/
+[Ee]xecutable/
+[Ll]og/
+
+## [ Visual Studio ]
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.v12.suo
+
+## [ Operating System ]
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## [ User-specific files ]
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## [ ReSharper / JetBrains ]
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## [ NuGet ]
+# Packages 폴더는 용량이 크므로 제외하고, 빌드 시 복구(Restore)하도록 합니다.
+packages/
+!packages/repositories.config
+*.nuget.props
+*.nuget.targets
+
+## [ Publish output ]
+*.[Pp]ublish.xml
+*.azurepubxml
