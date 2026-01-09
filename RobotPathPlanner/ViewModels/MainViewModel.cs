@@ -434,7 +434,7 @@ namespace RobotPathPlanner.ViewModels
                             }
                             else
                             {
-                                tentativeG = cur.Gn + (float)Distance(cur.Parent, next_node);
+                                tentativeG = cur.Gn + (float)Distance(cur, next_node);
                                 if (tentativeG < next_node.Gn)
                                 {
                                     next_node.Gn = tentativeG;
