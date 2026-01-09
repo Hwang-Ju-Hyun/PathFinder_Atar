@@ -63,8 +63,31 @@
              Height="30"
              Margin="5"
              Command="{Binding Initialize}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+             VerticalAlignment="Top"
+             HorizontalAlignment="Right"
+             Background="#AAFFFFFF">
+
+            <Button Content="Wait/Resume"
+             Width="100"
+             Height="30"
+             Margin="5"
+             Command="{Binding PauseResume}"/>
+        </StackPanel>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <Slider Width="234" Height="16"
+            Minimum="0"
+            Maximum="5000"
+            TickFrequency="10"
+            IsSnapToTickEnabled="True"
+            Value="{Binding StepDelay, Mode=TwoWay}"
+            Background="Salmon"/>
+
+            <Label Content="{Binding StepDelay, StringFormat=Delay: \{0\} ms}"
+           HorizontalAlignment="Center"/>
 
         </StackPanel>
-
     </Grid>
 </Window>

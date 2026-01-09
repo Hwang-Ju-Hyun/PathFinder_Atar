@@ -4,7 +4,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Media;
+
 
 namespace RobotPathPlanner.Models
 {
@@ -18,7 +20,7 @@ namespace RobotPathPlanner.Models
         Open,
         CLOSE
     }
-    public class Node: INotifyPropertyChanged
+    public class Node :INotifyPropertyChanged
     {
         private Brush color = Brushes.LightGray;
         private NodeType type;
@@ -29,10 +31,16 @@ namespace RobotPathPlanner.Models
         }
         public int COL {  get; set; }
         public int ROW { get; set; }
-        public int X {  get; set; }
-        public int Y {  get; set; }
+        
+        private Point pos;        
+        public Point Pos
+        {
+            get { return pos; }
+            set { pos = value; }
+        }
+        public float X {  get; set; }
+        public float Y {  get; set; }
                 
-
         Node parent;
         public Node Parent
         {
@@ -42,13 +50,24 @@ namespace RobotPathPlanner.Models
 
         public static bool operator == (Node n1,Node n2)
         {            
+            if (n1 is null || n2 is null)
+                return false;
             return (n1.ROW==n2.ROW)&&(n1.COL==n2.COL);
         }
         public static bool operator !=(Node n1, Node n2)
         {
+            if (n1 is null || n2 is null)
+                return false;
             return (n1.ROW != n2.ROW) || (n1.COL != n2.COL);
         }
-
+        public override bool Equals(object obj)
+        {
+            if(obj is Node other)
+            {
+                return this.ROW==other.ROW&& this.COL==other.COL;
+            }
+            return false;
+        }        
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string name)
