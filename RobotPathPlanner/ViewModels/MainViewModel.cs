@@ -58,8 +58,15 @@ namespace RobotPathPlanner.ViewModels
 
         public ICommand RunAStarCommand { get;}
         public ICommand Initialize { get; }    
-        public ICommand PauseResume { get; } 
-        
+        public ICommand PauseResume { get; }
+
+        private string hueristic_name;
+        public string Hueristic_name
+        {
+            get { return hueristic_name; }
+            set { hueristic_name = value; }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         public MainViewModel()
         {
@@ -88,7 +95,8 @@ namespace RobotPathPlanner.ViewModels
         private CancellationTokenSource astarCts;
 
 
-        delegate float Heuristic((float X, float Y) a, (float X, float Y) b);        
+        delegate float Heuristic((float X, float Y) a, (float X, float Y) b);
+        Heuristic H_Method;
         delegate int Heuristic_int((int X, int Y) a, (int X, int Y) b);
         static float GetDist((float X, float Y) a,(float X, float Y) b, Heuristic hueristic)
         {
@@ -104,9 +112,11 @@ namespace RobotPathPlanner.ViewModels
             return (Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y));
         }
 
-        static public double Euclidean(Point p1,Point p2)
+        static public float Euclidean((float X, float Y) a, (float X, float Y) b)
         {
-            return Math.Sqrt((Math.Pow(Math.Abs(p1.X - p2.X),2) + Math.Pow(Math.Abs(p1.Y - p2.Y),2)));
+            Point p1=new Point(a.X, a.Y);
+            Point p2 =new Point(b.X, b.Y);
+            return (float)Math.Sqrt((Math.Pow(Math.Abs(p1.X - p2.X),2) + Math.Pow(Math.Abs(p1.Y - p2.Y),2)));
         }
 
         static public float Octile((float X, float Y) a, (float X, float Y) b)
@@ -199,6 +209,14 @@ namespace RobotPathPlanner.ViewModels
             return true;
         }
 
+        double Distance(Node a, Node b)
+        {
+            float dx = (float)(a.Pos.X - b.Pos.X);
+            float dy = (float)(a.Pos.Y - b.Pos.Y);
+
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
         public void Init()
         {
             if (astarCts != null)
@@ -248,6 +266,7 @@ namespace RobotPathPlanner.ViewModels
                 await Task.Delay(50);
             }
         }
+
         void AstarInitialize()
         {
             
@@ -300,8 +319,23 @@ namespace RobotPathPlanner.ViewModels
                 throw new ApplicationException("출발지점과 도착지점이 존재하지 않습니다.");         
             }
 
-            open = new PriorityQueue();            
-            start.Hn = GetDist((start.COL, start.ROW), (end.COL, end.ROW), Octile);
+            open = new PriorityQueue();
+            H_Method = Octile;
+            start.Hn = GetDist(((float)start.COL, (float)start.ROW), ((float)end.COL, (float)end.ROW), H_Method);
+            
+            if(H_Method!=null)
+            {
+                Hueristic_name= H_Method.Method.Name;
+                if (Hueristic_name == "Octile"|| Hueristic_name == "Manha")
+                {
+                    start.Parent = null;
+                }
+                else if(Hueristic_name == "Euclidean")
+                {
+                    start.Parent = start;
+                }
+            }
+
             start.Fn = (start.Hn * start.Weight) + start.Gn;
             open.Enqueue(start);
             IsAstarInit = true;
@@ -384,18 +418,45 @@ namespace RobotPathPlanner.ViewModels
                         }
 
 
-                        float tentativeG = cur.Gn + cost;
-                        if (tentativeG < next_node.Gn)
+                        float tentativeG; /*= cur.Gn + cost;*/
+
+                        if (hueristic_name == "Euclidean")
                         {
-                            next_node.Gn = tentativeG;
-                            float h = GetDist((next_col, next_row), (end.COL, end.ROW), Octile);
-                            next_node.Hn = h;
-                            next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;
-                            next_node.Parent = cur;
-                            open.Enqueue(next_node);
-                            if (next_node.Type != NodeType.GOAL)
-                                next_node.Type = NodeType.Open;
+                            if (cur.Parent != null && LineOfSight(cur.Parent, next_node))
+                            {
+                                tentativeG = cur.Parent.Gn + (float)Distance(cur.Parent, next_node);
+
+                                if (tentativeG < next_node.Gn)
+                                {
+                                    next_node.Gn = tentativeG;
+                                    next_node.Parent = cur.Parent;
+                                }
+                            }
+                            else
+                            {
+                                tentativeG = cur.Gn + (float)Distance(cur.Parent, next_node);
+                                if (tentativeG < next_node.Gn)
+                                {
+                                    next_node.Gn = tentativeG;
+                                    next_node.Parent = cur;
+                                }
+                            }
                         }
+                        else
+                        {
+                            tentativeG= cur.Gn + cost;
+                            if (tentativeG < next_node.Gn)
+                            {
+                                next_node.Gn = tentativeG;                                                                                                                                                                
+                            }
+                        }
+
+                        next_node.Hn = GetDist((next_node.COL, next_node.ROW),(end.COL,end.ROW),H_Method);
+                        next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;
+                        next_node.Parent = cur;
+                        open.Enqueue(next_node);
+                        if (next_node.Type != NodeType.GOAL)
+                            next_node.Type = NodeType.Open;
                     }
                 }
             }
