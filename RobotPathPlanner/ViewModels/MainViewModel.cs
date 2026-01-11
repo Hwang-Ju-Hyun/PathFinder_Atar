@@ -19,6 +19,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Windows;
 using System.CodeDom;
+using System.Runtime.ConstrainedExecution;
 
 namespace RobotPathPlanner.ViewModels
 {
@@ -79,9 +80,17 @@ namespace RobotPathPlanner.ViewModels
             set { stepDelay=value; OnPropertyChanged(nameof(StepDelay));}
         }
 
+        private bool toggle_rb= false;
+        public bool ToggleRubberBanding
+        {
+            get { return toggle_rb; }
+            set { toggle_rb = value;OnPropertyChanged(nameof(ToggleRubberBanding));}
+        }         
+
         public ICommand RunAStarCommand { get;}
         public ICommand Initialize { get; }    
         public ICommand PauseResume { get; }
+        public ICommand RubberBand { get; }
 
         private string hueristic_name;
         int method_type;
@@ -99,18 +108,38 @@ namespace RobotPathPlanner.ViewModels
             RunAStarCommand = new RelayCommand(FindPath_Astar);
             Initialize = new RelayCommand(Init);
             PauseResume = new RelayCommand(ToggleWait);
+            RubberBand = new RelayCommand(ToggleRubberBandingOn);
         }
 
         void ToggleWait()
         {
             IsPaused = !IsPaused;
         }
+        void ToggleRubberBandingOn()
+        {
+            toggle_rb = !toggle_rb;
+        }
+
         private ObservableCollection<RobotPathPlanner.Util.PathSegment> pathsegment;
-        public ObservableCollection<RobotPathPlanner.Util.PathSegment> Path_Segment
+        public ObservableCollection<RobotPathPlanner.Util.PathSegment> Path_Segment            
         {
             get { return pathsegment; }
             set { pathsegment = value;OnPropertyChanged(nameof(Path_Segment));}
         }
+        private ObservableCollection<Node> nodePathSegment;
+        public ObservableCollection<Node> NodePath_Segment
+        {
+            get { return nodePathSegment; }
+            set { nodePathSegment = value; OnPropertyChanged(nameof(nodePathSegment)); }
+        }
+
+        private ObservableCollection<RobotPathPlanner.Util.PathSegment> rubberBandPath;
+        public ObservableCollection<RobotPathPlanner.Util.PathSegment> RubberBandPath
+        {
+            get { return rubberBandPath; }
+            set { rubberBandPath = value; OnPropertyChanged(nameof(RubberBandPath)); }
+        }
+
         private ObservableCollection<Node> nodes;
         public ObservableCollection<Node> Nodes { get { return nodes; } }
         protected void OnPropertyChanged(string propertyName)
@@ -178,7 +207,7 @@ namespace RobotPathPlanner.ViewModels
 
             //화면좌표계 Y값 반전
             return (float)Math.Atan2(dy, dx) * 180.0f / 3.141592f;
-        }
+        }                
 
         private void CreateGrids()
         {                        
@@ -211,9 +240,26 @@ namespace RobotPathPlanner.ViewModels
         private Node end = null; 
         private PriorityQueue open = null;
 
-        void RubberBanding()
+        ObservableCollection<Node> RubberBanding(Node cur)
         {
+            int cnt = 0;            
+            int i = 0;
+            while (i < NodePath_Segment.Count - 2)
+            {
+                var n1 = NodePath_Segment[i];
+                var n3 = NodePath_Segment[i + 2];
 
+                if (LineOfSight(n1, n3))
+                {
+                    NodePath_Segment.RemoveAt(i + 1);
+                    // i 그대로 → 더 멀리 당길 수 있는지 재검사
+                }
+                else
+                {
+                    i++; // 못 당기면 다음
+                }
+            }
+            return NodePath_Segment;    
         }
 
         bool LineOfSight(Node a, Node b)
@@ -239,6 +285,9 @@ namespace RobotPathPlanner.ViewModels
                 if (x0 == x1 && y0 == y1)
                     break;
 
+                int nx = x0;
+                int ny = y0;
+
                 int e2 = 2 * err;
                 if (e2 > -dy)
                 {
@@ -249,6 +298,12 @@ namespace RobotPathPlanner.ViewModels
                 {
                     err += dx;
                     y0 += sy;
+                }
+                if (nx != x0 && ny != y0)
+                {
+                    if (grid[y0, nx].Type == NodeType.OBSTACLE ||
+                        grid[ny, x0].Type == NodeType.OBSTACLE)
+                        return false;
                 }
             }
             return true;
@@ -323,6 +378,8 @@ namespace RobotPathPlanner.ViewModels
             start = null;
             end = null;
             Path_Segment = new ObservableCollection<Util.PathSegment>();
+            NodePath_Segment= new ObservableCollection<Node>();
+            RubberBandPath=new ObservableCollection<Util.PathSegment>();
             int start_cnt = 0;
             int end_cnt = 0;
             for (int r = 0; r < GridSize; r++)
@@ -534,13 +591,28 @@ namespace RobotPathPlanner.ViewModels
             {
                 Node cur = end;
                 while (cur != start)
-                {
+                {                    
                     if (cur != end)
                         grid[cur.ROW, cur.COL].Type = NodeType.PATH;
-                    Point from = new Point(cur.Parent.X+15, cur.Parent.Y+15);
-                    Point to = new Point(cur.X+15, cur.Y+15);
-                    Path_Segment.Add(new RobotPathPlanner.Util.PathSegment { From=from, To=to });
+                    Point from = new Point(cur.Parent.X + 15, cur.Parent.Y + 15);
+                    Point to = new Point(cur.X + 15, cur.Y + 15);
+                    Path_Segment.Add(new RobotPathPlanner.Util.PathSegment { From = from, To = to });
+                    NodePath_Segment.Add(cur);
                     cur = cur.Parent;
+                }                
+                NodePath_Segment.Add(cur);
+                cur = end;
+                if (toggle_rb)
+                {
+                    Path_Segment.Clear();
+                    NodePath_Segment = RubberBanding(cur);
+                    for (int i = 0; i <= NodePath_Segment.Count - 2; i++)
+                    {
+                        Point from = new Point(NodePath_Segment[i].X+15, NodePath_Segment[i].Y + 15);
+                        Point to = new Point(NodePath_Segment[i + 1].X + 15, NodePath_Segment[i + 1].Y + 15);
+
+                        Path_Segment.Add(new Util.PathSegment { From = from, To = to });
+                    }
                 }
             }            
         }

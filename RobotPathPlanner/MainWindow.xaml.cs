@@ -29,5 +29,10 @@ namespace RobotPathPlanner.Views
                     node.Type = node.Type == NodeType.OBSTACLE? NodeType.EMPTY: NodeType.OBSTACLE;
             }
         }
+
+        private void Button_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+
+        }
     }
 }

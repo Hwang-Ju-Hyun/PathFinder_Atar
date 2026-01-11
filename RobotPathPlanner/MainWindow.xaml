@@ -49,7 +49,7 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Path Stroke="Black"
+                        <Path Stroke="RosyBrown"
                   StrokeThickness="3">
 
                             <Path.Data>
@@ -86,7 +86,7 @@
              Width="100"
              Height="30"
              Margin="5"
-             Command="{Binding Initialize}"/>
+             Command="{Binding Initialize}" Click="Button_Click"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal"
              VerticalAlignment="Top"
@@ -99,6 +99,19 @@
              Margin="5"
              Command="{Binding PauseResume}"/>
         </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+     VerticalAlignment="Top"
+     HorizontalAlignment="Center"
+     Background="#AAFFFFFF">
+
+            <Button Content="Toggle RubberBanding"
+     Width="100"
+     Height="30"
+     Margin="5"
+     Command="{Binding RubberBand}" Click="Button_Click"/>
+        </StackPanel>
+
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
 
             <Slider Width="234" Height="16"
