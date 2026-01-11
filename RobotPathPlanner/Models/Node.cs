@@ -46,8 +46,7 @@ namespace RobotPathPlanner.Models
         {
             get { return parent; }
             set { parent = value; OnPropertyChanged(nameof(Parent));}
-        }
-
+        }                
         public static bool operator == (Node n1,Node n2)
         {            
             if (n1 is null || n2 is null)

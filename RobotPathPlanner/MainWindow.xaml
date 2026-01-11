@@ -35,9 +35,33 @@
                                    Fill="{Binding Color}"
                                    Stroke="Black"
                                    MouseLeftButtonDown="OnNodeClicked"/>
+
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <ItemsControl ItemsSource="{Binding Path_Segment}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Path Stroke="Black"
+                  StrokeThickness="3">
+
+                            <Path.Data>
+                                <GeometryGroup>
+                                    <LineGeometry StartPoint="{Binding From}"
+                                      EndPoint="{Binding To}"/>
+                                </GeometryGroup>
+                            </Path.Data>
+                        </Path>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>            
         </Canvas>
 
         <!-- 버튼 영역 (위에 덮어서 배치됨) -->
@@ -88,6 +112,6 @@
             <Label Content="{Binding StepDelay, StringFormat=Delay: \{0\} ms}"
            HorizontalAlignment="Center"/>
 
-        </StackPanel>
+        </StackPanel>        
     </Grid>
 </Window>

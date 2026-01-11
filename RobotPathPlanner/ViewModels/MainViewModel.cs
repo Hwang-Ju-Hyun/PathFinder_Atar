@@ -18,6 +18,7 @@ using System.Windows.Media.Animation;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Windows;
+using System.CodeDom;
 
 namespace RobotPathPlanner.ViewModels
 {
@@ -29,6 +30,28 @@ namespace RobotPathPlanner.ViewModels
         const int Straight_Cost = 10;
         const int Diagonal_Cost = 14;
 
+        enum HueristicType
+        {
+            NONE=0,
+            MANHATTAN=1,
+            OCTILE=2,
+            EUCLIDEAN=3
+        }
+        HueristicType hType;
+        int GetHueristicType(string method_name)
+        {
+            switch (method_name)
+            {
+                case "Manhattan":
+                    return (int)HueristicType.MANHATTAN;
+                case "Octile":
+                    return (int)HueristicType.OCTILE;
+                case "Euclidean":
+                    return (int)HueristicType.EUCLIDEAN;
+                default:
+                    return -1;
+            }
+        }
         public int GridSize
         {
             get { return grid_size; }
@@ -61,6 +84,7 @@ namespace RobotPathPlanner.ViewModels
         public ICommand PauseResume { get; }
 
         private string hueristic_name;
+        int method_type;
         public string Hueristic_name
         {
             get { return hueristic_name; }
@@ -81,7 +105,12 @@ namespace RobotPathPlanner.ViewModels
         {
             IsPaused = !IsPaused;
         }
-
+        private ObservableCollection<RobotPathPlanner.Util.PathSegment> pathsegment;
+        public ObservableCollection<RobotPathPlanner.Util.PathSegment> Path_Segment
+        {
+            get { return pathsegment; }
+            set { pathsegment = value;OnPropertyChanged(nameof(Path_Segment));}
+        }
         private ObservableCollection<Node> nodes;
         public ObservableCollection<Node> Nodes { get { return nodes; } }
         protected void OnPropertyChanged(string propertyName)
@@ -114,8 +143,8 @@ namespace RobotPathPlanner.ViewModels
 
         static public float Euclidean((float X, float Y) a, (float X, float Y) b)
         {
-            Point p1=new Point(a.X, a.Y);
-            Point p2 =new Point(b.X, b.Y);
+            Point p1=new Point(a.X*30, a.Y*30);
+            Point p2 =new Point(b.X * 30, b.Y * 30);
             return (float)Math.Sqrt((Math.Pow(Math.Abs(p1.X - p2.X),2) + Math.Pow(Math.Abs(p1.Y - p2.Y),2)));
         }
 
@@ -139,7 +168,18 @@ namespace RobotPathPlanner.ViewModels
             int straight = Math.Max(dx, dy) - diag;
 
             return diag * 14 + straight * 10;
-        }       
+        }
+
+        
+        public float GetAngle(Node from,Node to)
+        {
+            float dy= to.ROW-from.ROW;
+            float dx = to.COL - from.COL;
+
+            //화면좌표계 Y값 반전
+            return (float)Math.Atan2(dy, dx) * 180.0f / 3.141592f;
+        }
+
         private void CreateGrids()
         {                        
             grid = new Node[grid_size, grid_size];
@@ -159,7 +199,7 @@ namespace RobotPathPlanner.ViewModels
                         Gn = int.MaxValue
                     };
                     Point p = new Point(node.X,node.Y);
-                    node.Pos = p;
+                    node.Pos = p;                    
                     node.Weight = 1;
                     Nodes.Add(node);                    
                     grid[r, c] = node;
@@ -170,6 +210,11 @@ namespace RobotPathPlanner.ViewModels
         private Node start = null;
         private Node end = null; 
         private PriorityQueue open = null;
+
+        void RubberBanding()
+        {
+
+        }
 
         bool LineOfSight(Node a, Node b)
         {
@@ -227,6 +272,7 @@ namespace RobotPathPlanner.ViewModels
             IsPaused = false;
             IsAstarInit = false;
             found = false;
+            Path_Segment.Clear();
 
             if (start!=null)
                 start.Type = NodeType.EMPTY;
@@ -256,6 +302,11 @@ namespace RobotPathPlanner.ViewModels
             IsAstarInit = false;
             Nodes.Clear();
             CreateGrids();
+            
+            if(Path_Segment!=null)
+            {
+                Path_Segment.Clear();
+            }
         }
 
         bool IsAstarInit = false;       
@@ -268,10 +319,10 @@ namespace RobotPathPlanner.ViewModels
         }
 
         void AstarInitialize()
-        {
-            
+        {            
             start = null;
             end = null;
+            Path_Segment = new ObservableCollection<Util.PathSegment>();
             int start_cnt = 0;
             int end_cnt = 0;
             for (int r = 0; r < GridSize; r++)
@@ -320,17 +371,17 @@ namespace RobotPathPlanner.ViewModels
             }
 
             open = new PriorityQueue();
-            H_Method = Octile;
+            H_Method = Euclidean;
+            method_type = GetHueristicType(H_Method.Method.Name);
             start.Hn = GetDist(((float)start.COL, (float)start.ROW), ((float)end.COL, (float)end.ROW), H_Method);
             
             if(H_Method!=null)
-            {
-                Hueristic_name= H_Method.Method.Name;
-                if (Hueristic_name == "Octile"|| Hueristic_name == "Manha")
+            {                           
+                if (method_type == (int)HueristicType.MANHATTAN|| method_type == (int)HueristicType.OCTILE)
                 {
                     start.Parent = null;
                 }
-                else if(Hueristic_name == "Euclidean")
+                else if(method_type == (int)HueristicType.EUCLIDEAN)
                 {
                     start.Parent = start;
                 }
@@ -418,9 +469,9 @@ namespace RobotPathPlanner.ViewModels
                         }
 
 
-                        float tentativeG; /*= cur.Gn + cost;*/
+                        float tentativeG;
 
-                        if (hueristic_name == "Euclidean")
+                        if (method_type==(int)HueristicType.EUCLIDEAN)
                         {
                             if (cur.Parent != null && LineOfSight(cur.Parent, next_node))
                             {
@@ -430,6 +481,11 @@ namespace RobotPathPlanner.ViewModels
                                 {
                                     next_node.Gn = tentativeG;
                                     next_node.Parent = cur.Parent;
+                                    next_node.Hn = GetDist((next_node.COL, next_node.ROW), (end.COL, end.ROW), H_Method);
+                                    next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;                                    
+                                    open.Enqueue(next_node);
+                                    if (next_node.Type != NodeType.GOAL)
+                                        next_node.Type = NodeType.Open;
                                 }
                             }
                             else
@@ -439,25 +495,33 @@ namespace RobotPathPlanner.ViewModels
                                 {
                                     next_node.Gn = tentativeG;
                                     next_node.Parent = cur;
+                                    next_node.Hn = GetDist((next_node.COL, next_node.ROW), (end.COL, end.ROW), H_Method);
+                                    next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;                                    
+                                    open.Enqueue(next_node);
+                                    if (next_node.Type != NodeType.GOAL)
+                                        next_node.Type = NodeType.Open;
                                 }
                             }
                         }
                         else
                         {
-                            tentativeG= cur.Gn + cost;
+                            tentativeG = cur.Gn + cost;
                             if (tentativeG < next_node.Gn)
                             {
-                                next_node.Gn = tentativeG;                                                                                                                                                                
+                                next_node.Gn = tentativeG;
+                                next_node.Hn = GetDist((next_node.COL, next_node.ROW), (end.COL, end.ROW), H_Method);
+                                next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;
+                                next_node.Parent = cur;
+                                open.Enqueue(next_node);
+                                if (next_node.Type != NodeType.GOAL)
+                                    next_node.Type = NodeType.Open;
                             }
                         }
-
-                        next_node.Hn = GetDist((next_node.COL, next_node.ROW),(end.COL,end.ROW),H_Method);
-                        next_node.Fn = (next_node.Hn * next_node.Weight) + next_node.Gn;
-                        next_node.Parent = cur;
-                        open.Enqueue(next_node);
-                        if (next_node.Type != NodeType.GOAL)
-                            next_node.Type = NodeType.Open;
                     }
+                }
+                if(found==false)
+                {
+                    throw new ApplicationException("갈 수 없는 지점입니다.");                    
                 }
             }
             catch(OperationCanceledException e)
@@ -468,11 +532,14 @@ namespace RobotPathPlanner.ViewModels
             }
             if(found)
             {
-                Node cur = end;               
-                while (cur!=start)
+                Node cur = end;
+                while (cur != start)
                 {
                     if (cur != end)
-                        grid[cur.ROW, cur.COL].Type = NodeType.PATH;                    
+                        grid[cur.ROW, cur.COL].Type = NodeType.PATH;
+                    Point from = new Point(cur.Parent.X+15, cur.Parent.Y+15);
+                    Point to = new Point(cur.X+15, cur.Y+15);
+                    Path_Segment.Add(new RobotPathPlanner.Util.PathSegment { From=from, To=to });
                     cur = cur.Parent;
                 }
             }            
